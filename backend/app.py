@@ -3,6 +3,9 @@ import mysql.connector
 from flask_cors import CORS
 import os
 from dotenv import load_dotenv
+import yfinance as yf
+import threading
+import time
 
 app = Flask(__name__)
 CORS(app, resources={r"*": {"origins": "*"}})
@@ -68,10 +71,16 @@ def buy_stock():
     user_id = data.get("user_id")
     symbol = data.get("symbol")
     shares = data.get("shares")
-    price = data.get("price")
 
-    if not user_id or not symbol or not shares or not price:
+    if not user_id or not symbol or not shares:
         return jsonify({"error": "Missing required parameters"}), 400
+
+    stock_price = fetch_stock_price(symbol)
+
+    if stock_price is None:
+        return jsonify({"error": "Invalid stock symbol or stock not found"}), 400
+
+    total_cost = shares * stock_price
 
     try:
         db = get_db_connection()
@@ -85,7 +94,6 @@ def buy_stock():
             return jsonify({"error": "User not found"}), 404
 
         balance = user_data["balance"]
-        total_cost = shares * price
 
         # Check if user has enough balance
         if balance < total_cost:
@@ -103,15 +111,15 @@ def buy_stock():
             # If stock exists, update the shares
             new_shares = existing_stock["shares"] + shares
             cursor.execute("UPDATE portfolio SET shares = %s, price = %s WHERE user_id = %s AND symbol = %s",
-                           (new_shares, price, user_id, symbol))
+                           (new_shares, stock_price, user_id, symbol))
         else:
             # If stock doesn't exist, insert a new row
             cursor.execute("INSERT INTO portfolio (user_id, symbol, shares, price) VALUES (%s, %s, %s, %s)",
-                           (user_id, symbol, shares, price))
+                           (user_id, symbol, shares, stock_price))
 
         # Add transaction history
         cursor.execute("INSERT INTO transactions (user_id, symbol, shares, price, type) VALUES (%s, %s, %s, %s, 'BUY')",
-                       (user_id, symbol, shares, price))
+                       (user_id, symbol, shares, stock_price))
 
         db.commit()
         db.close()
@@ -127,10 +135,16 @@ def sell_stock():
     user_id = data.get('user_id')
     symbol = data.get('symbol')
     shares = data.get('shares')
-    price = data.get('price')
 
-    if not user_id or not symbol or not shares or not price:
+    if not user_id or not symbol or not shares:
         return jsonify({"error": "All fields are required"}), 400
+
+    stock_price = fetch_stock_price(symbol)
+
+    if stock_price is None:
+        return jsonify({"error": "Invalid stock symbol or stock not found"}), 400
+
+    total_sale = shares * stock_price
 
     try:
         db = get_db_connection()
@@ -150,9 +164,16 @@ def sell_stock():
             WHERE user_id = %s AND symbol = %s
         """, (shares, user_id, symbol))
 
+        cursor.execute("""
+            DELETE FROM portfolio WHERE user_id = %s AND symbol = %s AND shares = 0
+        """, (user_id, symbol))
+
         # Update user balance by adding the sale amount
-        total_sale = shares * price
         cursor.execute("UPDATE users SET balance = balance + %s WHERE id = %s", (total_sale, user_id))
+
+        # Add transaction history
+        cursor.execute("INSERT INTO transactions (user_id, symbol, shares, price, type) VALUES (%s, %s, %s, %s, 'SELL')",
+                       (user_id, symbol, shares, stock_price))
 
         # Commit the transaction
         db.commit()
@@ -163,6 +184,45 @@ def sell_stock():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Run Flask app
+def fetch_stock_price(symbol):
+    try:
+        stock = yf.Ticker(symbol)
+        stock_price = stock.history(period="1d")["Close"].iloc[-1]  # Get the latest closing price
+        return round(stock_price, 2)
+    except Exception as e:
+        print(f"Error fetching stock price for {symbol}: {e}")
+        return None
+
+def update_stock_prices():
+    while True:
+        try:
+            db = get_db_connection()
+            cursor = db.cursor(dictionary=True)
+
+            cursor.execute("SELECT DISTINCT symbol FROM portfolio")
+            stocks = cursor.fetchall()
+
+            for stock in stocks:
+                symbol = stock["symbol"]
+                latest_price = fetch_stock_price(symbol)
+
+                if latest_price:
+                    cursor.execute(
+                        "UPDATE portfolio SET price = %s WHERE symbol = %s",
+                        (latest_price, symbol)
+                    )
+                    db.commit()
+                    print(f"Updated {symbol}: ${latest_price}")
+
+            cursor.close()
+            db.close()
+
+        except Exception as e:
+            print(f"Error updating stock prices: {e}")
+
+        time.sleep(5)
+
+threading.Thread(target=update_stock_prices, daemon=True).start()
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5001)

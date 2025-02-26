@@ -10,11 +10,9 @@ const Dashboard = () => {
 
   const [buySymbol, setBuySymbol] = useState("");
   const [buyShares, setBuyShares] = useState("");
-  const [buyPrice, setBuyPrice] = useState("");
 
   const [sellSymbol, setSellSymbol] = useState("");
   const [sellShares, setSellShares] = useState("");
-  const [sellPrice, setSellPrice] = useState("");
 
   const user_id = 1;
 
@@ -34,6 +32,9 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchInfo();
+    const interval = setInterval(fetchInfo, 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleBuyStock = async (e) => {
@@ -42,7 +43,6 @@ const Dashboard = () => {
       user_id: user_id,
       symbol: buySymbol,
       shares: parseInt(buyShares),
-      price: parseFloat(buyPrice),
     };
     try {
       const response = await fetch("http://localhost:5001/api/buy_stock", {
@@ -59,7 +59,6 @@ const Dashboard = () => {
         alert("Stock purchased successfully!");
         setBuySymbol("");
         setBuyShares("");
-        setBuyPrice("");
         fetchInfo();
       } else {
         alert(`Error: ${data.error}`);
@@ -75,7 +74,6 @@ const Dashboard = () => {
       user_id: user_id,
       symbol: sellSymbol,
       shares: parseInt(sellShares),
-      price: parseFloat(sellPrice),
     };
 
     try {
@@ -99,7 +97,6 @@ const Dashboard = () => {
           alert("Stock sold successfully!");
           setSellSymbol("");
           setSellShares("");
-          setSellPrice("");
           fetchInfo();
         } else {
           alert(`Error: ${data.error}`);
@@ -108,7 +105,6 @@ const Dashboard = () => {
         alert("You don't have enough shares to sell!");
         setSellSymbol("");
         setSellShares("");
-        setSellPrice("");
       }
     } catch (error) {
       console.error("Error selling stock:", error);
@@ -116,80 +112,80 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold">Your Portfolio</h1>
-      <p className="text-lg font-semibold mt-2">Balance: ${balance}</p>
-      {portfolio.length > 0 ? (
-        <ul>
-          {portfolio.map((stock, index) => (
-            <li key={index} className="border-b py-2">
-              {stock.symbol} - {stock.shares} shares - ${stock.price}
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-gray-500">No stocks in your portfolio.</p>
-      )}
-      <h2 className="text-xl font-bold mt-4">Buy Stocks</h2>
-      <form onSubmit={handleBuyStock} className="flex flex-col space-y-2">
-        <input
-          type="text"
-          placeholder="Stock Symbol (e.g., AAPL)"
-          value={buySymbol}
-          onChange={(e) => setBuySymbol(e.target.value.toUpperCase())}
-          required
-          className="p-2 border rounded"
-        />
-        <input
-          type="number"
-          placeholder="Shares"
-          value={buyShares}
-          onChange={(e) => setBuyShares(e.target.value)}
-          required
-          className="p-2 border rounded"
-        />
-        <input
-          type="number"
-          placeholder="Price per Share"
-          value={buyPrice}
-          onChange={(e) => setBuyPrice(e.target.value)}
-          required
-          className="p-2 border rounded"
-        />
-        <button type="submit" className="bg-blue-500 text-white p-2 rounded hover:bg-blue-700">
-          Buy Stock
-        </button>
-      </form>
-      <h2 className="text-xl font-bold mt-4">Sell Stocks</h2>
-      <form onSubmit={handleSellStock} className="flex flex-col space-y-2">
-        <input
-          type="text"
-          placeholder="Stock Symbol (e.g., AAPL)"
-          value={sellSymbol}
-          onChange={(e) => setSellSymbol(e.target.value.toUpperCase())}
-          required
-          className="p-2 border rounded"
-        />
-        <input
-          type="number"
-          placeholder="Shares"
-          value={sellShares}
-          onChange={(e) => setSellShares(e.target.value)}
-          required
-          className="p-2 border rounded"
-        />
-        <input
-          type="number"
-          placeholder="Price per Share"
-          value={sellPrice}
-          onChange={(e) => setSellPrice(e.target.value)}
-          required
-          className="p-2 border rounded"
-        />
-        <button type="submit" className="bg-red-500 text-white p-2 rounded hover:bg-red-700">
-          Sell Stock
-        </button>
-      </form>
+    <div className="grid grid-cols-3 gap-6 p-6 min-h-screen text-gray-200 h-screen item-stretch">
+      {/* Portfolio */}
+      <div className="col-span-2 flex flex-col h-full justify-center">
+        <div className="w-full border border-gray-700 p-6 rounded-lg">
+          <h1 className="text-3xl font-bold text-center mb-4">Your Portfolio</h1>
+          <p className="text-xl font-semibold text-center mb-4">Balance: ${balance}</p>
+          {portfolio.length > 0 ? (
+            <ul>
+              {portfolio.map((stock, index) => (
+                <li key={index} className="border-b border-gray-700 py-3 text-center">
+                  {stock.symbol} - {stock.shares} shares - ${stock.price}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-center text-gray-500">No stocks in your portfolio.</p>
+          )}
+        </div>
+      </div>
+
+      {/* Buy and Sell Forms */}
+      <div className="flex flex-col gap-6">
+        {/* Buy Form */}
+        <div className="border border-gray-700 p-6 rounded-lg flex flex-col">
+          <h2 className="text-xl font-semibold mb-4">Buy Stocks</h2>
+          <form onSubmit={handleBuyStock} className="flex flex-col space-y-2">
+            <input
+              type="text"
+              placeholder="Stock Symbol (e.g., AAPL)"
+              value={buySymbol}
+              onChange={(e) => setBuySymbol(e.target.value.toUpperCase())}
+              required
+              className="border border-gray-700 p-2 rounded w-full bg-gray-800 text-white mb-2"
+            />
+            <input
+              type="number"
+              placeholder="Shares"
+              value={buyShares}
+              onChange={(e) => setBuyShares(e.target.value)}
+              required
+              className="border border-gray-700 p-2 rounded w-full bg-gray-800 text-white mb-2"
+            />
+            <button type="submit" className="bg-green-500 text-white px-4 py-2 rounded w-full hover:bg-green-600">
+              Buy Stock
+            </button>
+          </form>
+        </div>
+
+        {/* Sell Form */}
+        <div className="border border-gray-700 p-6 rounded-lg flex flex-col">
+          <h2 className="text-xl font-semibold mb-4">Sell Stocks</h2>
+          <form onSubmit={handleSellStock} className="flex flex-col space-y-2">
+            <input
+              type="text"
+              placeholder="Stock Symbol (e.g., AAPL)"
+              value={sellSymbol}
+              onChange={(e) => setSellSymbol(e.target.value.toUpperCase())}
+              required
+              className="border border-gray-700 p-2 rounded w-full bg-gray-800 text-white mb-2"
+            />
+            <input
+              type="number"
+              placeholder="Shares"
+              value={sellShares}
+              onChange={(e) => setSellShares(e.target.value)}
+              required
+              className="border border-gray-700 p-2 rounded w-full bg-gray-800 text-white mb-2"
+            />
+            <button type="submit" className="bg-red-500 text-white px-4 py-2 rounded w-full hover:bg-red-600">
+              Sell Stock
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   );
 };
